@@ -3,10 +3,495 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hello World</title>
+  <title>Portfolio Intelligence Dashboard</title>
+  <style>
+    :root {
+      --bg: #070d1b;
+      --panel: #101a33;
+      --line: #25345f;
+      --text: #eef3ff;
+      --muted: #9ba8c7;
+      --pos: #2ed18a;
+      --neg: #ff6d6d;
+      --accent: #7aa2ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(circle at 15% 0%, #152445 0%, var(--bg) 42%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .app { width: min(1300px, 95vw); margin: 1.1rem auto 2.2rem; display: grid; gap: 0.9rem; }
+    .panel {
+      background: rgba(16, 26, 51, 0.88);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.9rem;
+    }
+    h1,h2,h3,h4,p { margin: 0; }
+    .muted { color: var(--muted); }
+    .top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.7rem; align-items: center; }
+    .status-wrap { text-align: right; }
+    .status { font-size: 0.84rem; margin-top: 0.15rem; }
+    .status.ok { color: var(--pos); }
+    .status.warn { color: #ffcf5a; }
+
+    .cards { margin-top: 0.8rem; display: grid; gap: 0.7rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .card { border: 1px solid var(--line); border-radius: 10px; padding: 0.65rem; background: rgba(9, 15, 31, 0.68); }
+    .card .k { color: var(--muted); font-size: 0.8rem; }
+    .card .v { font-weight: 700; font-size: 1.1rem; margin-top: 0.34rem; }
+    .pos { color: var(--pos); }
+    .neg { color: var(--neg); }
+
+    .table-wrap { overflow: auto; margin-top: 0.55rem; }
+    table { width: 100%; border-collapse: collapse; min-width: 1100px; font-size: 0.86rem; }
+    th, td { border-bottom: 1px solid var(--line); padding: 0.5rem 0.45rem; text-align: right; white-space: nowrap; }
+    th.left, td.left { text-align: left; }
+    th button {
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-weight: 600;
+      display: inline-flex;
+      gap: 0.3rem;
+      align-items: center;
+      padding: 0;
+    }
+    th button .sort { color: var(--muted); font-size: 0.72rem; }
+    tbody tr { cursor: pointer; }
+    tbody tr:hover, tbody tr.active { background: rgba(122, 162, 255, 0.13); }
+
+    .grid { display: grid; gap: 0.8rem; grid-template-columns: 1.05fr 1fr; }
+    .chart { width: 100%; height: 180px; border: 1px solid var(--line); border-radius: 8px; margin-top: 0.6rem; }
+
+    .detail-meta { margin-top: 0.28rem; font-size: 0.9rem; color: var(--muted); }
+    .impact { margin-top: 0.65rem; border: 1px solid var(--line); border-radius: 8px; padding: 0.55rem; background: rgba(10, 16, 31, 0.7); font-size: 0.86rem; line-height: 1.42; }
+
+    .dca-box { margin-top: 0.55rem; border: 1px solid var(--line); border-radius: 8px; padding: 0.55rem; }
+    .dca-row { display: grid; grid-template-columns: 1fr auto auto; gap: 0.45rem; margin-top: 0.45rem; }
+    input, button {
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #0a1123;
+      color: var(--text);
+      padding: 0.42rem 0.52rem;
+      font: inherit;
+    }
+    button.action { background: #152752; cursor: pointer; }
+
+    .scenario-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.6rem; }
+    .scenario { border: 1px solid var(--line); border-radius: 8px; padding: 0.5rem; background: rgba(9, 15, 31, 0.65); }
+    .scenario h4 { font-size: 0.88rem; }
+    .scenario ul { list-style: none; padding: 0; margin: 0.4rem 0 0; display: grid; gap: 0.4rem; font-size: 0.82rem; }
+    .scenario li { display: flex; justify-content: space-between; gap: 0.35rem; }
+
+    .disclaimer { font-size: 0.8rem; color: var(--muted); line-height: 1.4; }
+
+    @media (max-width: 1000px) {
+      .grid { grid-template-columns: 1fr; }
+      .status-wrap { text-align: left; }
+      .dca-row { grid-template-columns: 1fr; }
+      .scenario-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-  <h1>Hello World</h1>
-  <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+  <main class="app">
+    <section class="panel">
+      <div class="top">
+        <div>
+          <h1>Portfolio Intelligence Dashboard</h1>
+          <p class="muted">Live quotes, DCA what-if, sortable table, and 2/5/10Y scenario forecasts</p>
+        </div>
+        <div class="status-wrap">
+          <p id="last-updated" class="muted">Last updated: --</p>
+          <p id="feed-status" class="status warn">Quote feed: Connecting...</p>
+          <p id="market-status" class="muted">Market status: --</p>
+        </div>
+      </div>
+      <div id="portfolio-cards" class="cards"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Positions</h2>
+      <div class="table-wrap">
+        <table id="positions-table">
+          <thead>
+            <tr>
+              <th class="left"><button data-sort="symbol">Symbol <span class="sort">↕</span></button></th>
+              <th class="left"><button data-sort="name">Name <span class="sort">↕</span></button></th>
+              <th><button data-sort="sector">Sector <span class="sort">↕</span></button></th>
+              <th><button data-sort="quantity">Qty <span class="sort">↕</span></button></th>
+              <th><button data-sort="price">Price <span class="sort">↕</span></button></th>
+              <th><button data-sort="costBasis">Cost Basis <span class="sort">↕</span></button></th>
+              <th><button data-sort="liveValue">Value <span class="sort">↕</span></button></th>
+              <th><button data-sort="unrealizedDollar">Unrealized ($) <span class="sort">↕</span></button></th>
+              <th><button data-sort="unrealizedPctCurrent">Unrealized (%) <span class="sort">↕</span></button></th>
+              <th><button data-sort="dayChangeDollar">Day ($) <span class="sort">↕</span></button></th>
+              <th><button data-sort="dayChangePct">Day (%) <span class="sort">↕</span></button></th>
+              <th><button data-sort="weight">Weight (%) <span class="sort">↕</span></button></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel grid">
+      <div>
+        <h2 id="detail-title">Position Detail</h2>
+        <p id="detail-meta" class="detail-meta"></p>
+        <svg id="history-chart" class="chart" viewBox="0 0 900 180" preserveAspectRatio="none"></svg>
+        <div class="impact" id="sector-impact"></div>
+      </div>
+
+      <div>
+        <h3>Forecast Cases (2Y / 5Y / 10Y)</h3>
+        <p id="forecast-assumption" class="muted" style="margin-top:0.3rem;"></p>
+
+        <div class="dca-box">
+          <strong>DCA What-if</strong>
+          <p class="muted" style="margin-top:0.25rem; font-size:0.83rem;">One-time additional investment into selected position.</p>
+          <div class="dca-row">
+            <input id="dca-input" type="number" min="0" step="100" placeholder="Enter additional amount (e.g. 5000)" />
+            <button id="apply-dca" class="action">Apply</button>
+            <button id="reset-dca">Reset</button>
+          </div>
+        </div>
+
+        <div id="scenario-grid" class="scenario-grid"></div>
+      </div>
+    </section>
+
+    <section class="panel disclaimer">
+      Forecast outputs are estimates and not investment advice. Quote integration attempts Yahoo Finance public quote endpoint from your browser. If your environment blocks cross-origin access, the dashboard falls back to simulated quote movement and marks feed status accordingly.
+    </section>
+  </main>
+
+  <script>
+    const positions = [
+      { symbol: 'PLTR', name: 'Palantir Technologies Inc.', sector: 'Technology', industry: 'Software - Infrastructure', benchmark: 'XLK', quantity: 578.67495, costBasis: 15050, value: 78341.01 },
+      { symbol: 'VOO', name: 'Vanguard S&P 500 ETF', sector: 'Diversified ETF', industry: 'Index ETF', benchmark: 'SPY', quantity: 102.38684, costBasis: 65034.12, value: 64621.45 },
+      { symbol: 'SCHG', name: 'Schwab U.S. Large-Cap Growth ETF', sector: 'Diversified ETF', industry: 'Growth ETF', benchmark: 'SPYG', quantity: 940.64686, costBasis: 23211.56, value: 28887.27 },
+      { symbol: 'NVDA', name: 'NVIDIA', sector: 'Technology', industry: 'Semiconductors', benchmark: 'SOXX', quantity: 123.96937, costBasis: 13050, value: 23303.76 },
+      { symbol: 'MU', name: 'Micron Technology Inc.', sector: 'Technology', industry: 'Semiconductors', benchmark: 'SOXX', quantity: 54.74981, costBasis: 10006.29, value: 23046.93 },
+      { symbol: 'TSLA', name: 'Tesla Inc.', sector: 'Consumer Cyclical', industry: 'Auto Manufacturers', benchmark: 'XLY', quantity: 47.13732, costBasis: 6000, value: 19388.52 },
+      { symbol: 'VRT', name: 'Vertiv Holdings LLC Class A', sector: 'Industrials', industry: 'Electrical Equipment', benchmark: 'XLI', quantity: 70.77637, costBasis: 10004.42, value: 17213.52 },
+      { symbol: 'SCHD', name: 'Schwab U.S. Dividend Equity ETF', sector: 'Diversified ETF', industry: 'Dividend ETF', benchmark: 'VIG', quantity: 418.69852, costBasis: 9578.98, value: 13214.13 },
+      { symbol: 'COST', name: 'Costco Wholesale Corporation', sector: 'Consumer Defensive', industry: 'Discount Stores', benchmark: 'XLP', quantity: 10.92647, costBasis: 5014.19, value: 10883.64 },
+      { symbol: 'SGOV', name: 'iShares 0-3 Month Treasury Bond ETF', sector: 'Fixed Income', industry: 'Treasury ETF', benchmark: 'SHY', quantity: 99.34408, costBasis: 9989.05, value: 9988.05 },
+      { symbol: 'AVGO', name: 'Broadcom Inc.', sector: 'Technology', industry: 'Semiconductors', benchmark: 'SOXX', quantity: 24.40902, costBasis: 8326.88, value: 8140.65 },
+      { symbol: 'MSFT', name: 'Microsoft', sector: 'Technology', industry: 'Software - Infrastructure', benchmark: 'XLK', quantity: 14.73968, costBasis: 4533.44, value: 5889.98 },
+      { symbol: 'UNH', name: 'UnitedHealth Group Incorporated (DE)', sector: 'Healthcare', industry: 'Healthcare Plans', benchmark: 'XLV', quantity: 20.20759, costBasis: 6400.83, value: 5823.83 },
+      { symbol: 'AMD', name: 'Advanced Micro Devices Inc.', sector: 'Technology', industry: 'Semiconductors', benchmark: 'SOXX', quantity: 26.23628, costBasis: 6000, value: 5250.4 },
+      { symbol: 'ABBV', name: 'AbbVie Inc.', sector: 'Healthcare', industry: 'Drug Manufacturers', benchmark: 'XLV', quantity: 22.72414, costBasis: 3031.36, value: 5197.47 },
+      { symbol: 'META', name: 'Meta Platforms Inc.', sector: 'Communication Services', industry: 'Internet Content & Information', benchmark: 'XLC', quantity: 7.9885, costBasis: 3650, value: 5138.36 },
+      { symbol: 'CSGP', name: 'CoStar Group Inc.', sector: 'Real Estate', industry: 'Real Estate Services', benchmark: 'XLRE', quantity: 89.01282, costBasis: 15285.59, value: 4356.29 },
+      { symbol: 'KRP', name: 'Kimbell Royalty Partners', sector: 'Energy', industry: 'Oil & Gas E&P', benchmark: 'XLE', quantity: 255.54993, costBasis: 3288.49, value: 3639.03 },
+      { symbol: 'CEG', name: 'Constellation Energy Corporation', sector: 'Utilities', industry: 'Utilities - Renewable', benchmark: 'XLU', quantity: 12.24967, costBasis: 3600, value: 3602.02 },
+      { symbol: 'WFC', name: 'Wells Fargo & Company', sector: 'Financial Services', industry: 'Banks - Diversified', benchmark: 'XLF', quantity: 40.51921, costBasis: 1454.6, value: 3588.38 },
+      { symbol: 'NEE', name: 'NextEra Energy Inc.', sector: 'Utilities', industry: 'Utilities - Regulated Electric', benchmark: 'XLU', quantity: 38.67363, costBasis: 3600, value: 3527.81 },
+      { symbol: 'AAPL', name: 'Apple', sector: 'Technology', industry: 'Consumer Electronics', benchmark: 'XLK', quantity: 12.74639, costBasis: 1006.62, value: 3369.51 },
+      { symbol: 'ANET', name: 'Arista Networks Inc.', sector: 'Technology', industry: 'Computer Hardware', benchmark: 'XLK', quantity: 22.33939, costBasis: 3150, value: 3117.24 },
+      { symbol: 'TSM', name: 'Taiwan Semiconductor Manufacturing Company Ltd.', sector: 'Technology', industry: 'Semiconductors', benchmark: 'SOXX', quantity: 6.51066, costBasis: 2152.1, value: 2358.55 },
+      { symbol: 'AMZN', name: 'Amazon', sector: 'Consumer Cyclical', industry: 'Internet Retail', benchmark: 'XLY', quantity: 10.71828, costBasis: 2150, value: 2195 },
+      { symbol: 'GOOG', name: 'Alphabet', sector: 'Communication Services', industry: 'Internet Content & Information', benchmark: 'XLC', quantity: 6.01662, costBasis: 1051.23, value: 1828.69 },
+      { symbol: 'V', name: 'Visa', sector: 'Financial Services', industry: 'Credit Services', benchmark: 'XLF', quantity: 3.41479, costBasis: 1002.28, value: 1093.76 }
+    ];
+
+    const formatCurrency = (n) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+    const formatPct = (n) => `${n.toFixed(2)}%`;
+
+    function getUsMarketStatus() {
+      const now = new Date();
+      const est = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+      const day = est.getDay();
+      const mins = est.getHours() * 60 + est.getMinutes();
+      const open = 9 * 60 + 30;
+      const close = 16 * 60;
+      if (day === 0 || day === 6) return 'Closed (Weekend)';
+      if (mins < open) return 'Closed (Pre-market)';
+      if (mins > close) return 'Closed (After-hours)';
+      return 'Open';
+    }
+
+    positions.forEach((p) => {
+      p.price = p.value / p.quantity;
+      p.prevClose = p.price;
+      p.dayChangeDollar = 0;
+      p.dayChangePct = 0;
+      p.liveValue = p.value;
+      p.unrealizedDollar = p.liveValue - p.costBasis;
+      p.unrealizedPctCurrent = (p.unrealizedDollar / p.costBasis) * 100;
+      p.dcaAmount = 0;
+      p.baseRate = Math.max(-0.08, Math.min(0.16, p.unrealizedPctCurrent / 100 * 0.1));
+      p.bearRate = p.baseRate - 0.05;
+      p.bullRate = p.baseRate + 0.06;
+      p.history = Array.from({ length: 26 }, (_, i) => {
+        const drift = 1 + (i / 25) * p.baseRate;
+        const noise = 1 + Math.sin(i * 1.6 + p.quantity) * 0.016;
+        return p.liveValue / (drift * noise);
+      });
+    });
+
+    const dcaSaved = JSON.parse(localStorage.getItem('dcaAmounts') || '{}');
+    positions.forEach((p) => {
+      if (typeof dcaSaved[p.symbol] === 'number' && dcaSaved[p.symbol] >= 0) p.dcaAmount = dcaSaved[p.symbol];
+    });
+
+    const state = { selectedSymbol: positions[0].symbol, sortKey: 'liveValue', sortDir: 'desc', liveMode: 'pending' };
+
+    const cardsWrap = document.getElementById('portfolio-cards');
+    const tableBody = document.querySelector('#positions-table tbody');
+    const detailTitle = document.getElementById('detail-title');
+    const detailMeta = document.getElementById('detail-meta');
+    const chart = document.getElementById('history-chart');
+    const forecastAssumption = document.getElementById('forecast-assumption');
+    const scenarioGrid = document.getElementById('scenario-grid');
+    const dcaInput = document.getElementById('dca-input');
+    const sectorImpact = document.getElementById('sector-impact');
+    const feedStatus = document.getElementById('feed-status');
+    const marketStatus = document.getElementById('market-status');
+    const lastUpdated = document.getElementById('last-updated');
+
+    function saveDcaState() {
+      const payload = Object.fromEntries(positions.map((p) => [p.symbol, p.dcaAmount]));
+      localStorage.setItem('dcaAmounts', JSON.stringify(payload));
+    }
+
+    function computeMetrics() {
+      const totalValue = positions.reduce((s, p) => s + p.liveValue, 0);
+      positions.forEach((p) => {
+        p.weight = totalValue ? (p.liveValue / totalValue) * 100 : 0;
+        p.unrealizedDollar = p.liveValue - p.costBasis;
+        p.unrealizedPctCurrent = p.costBasis ? (p.unrealizedDollar / p.costBasis) * 100 : 0;
+      });
+      return totalValue;
+    }
+
+    function project(v, r, years) { return v * ((1 + r) ** years); }
+
+    function portfolioForecast(totalValue) {
+      const totalCost = positions.reduce((s, p) => s + p.costBasis, 0);
+      const gain = totalValue - totalCost;
+      const gainPct = totalCost ? (gain / totalCost) * 100 : 0;
+      const weightedBase = positions.reduce((s, p) => s + (p.weight / 100) * p.baseRate, 0);
+      const totalDca = positions.reduce((s, p) => s + p.dcaAmount, 0);
+      const withDca = totalValue + totalDca;
+      return {
+        totalValue, gain, gainPct, totalDca,
+        y2: project(totalValue, weightedBase, 2),
+        y5: project(totalValue, weightedBase, 5),
+        y10: project(totalValue, weightedBase, 10),
+        y2Dca: project(withDca, weightedBase, 2),
+        y5Dca: project(withDca, weightedBase, 5),
+        y10Dca: project(withDca, weightedBase, 10)
+      };
+    }
+
+    function renderCards() {
+      const total = computeMetrics();
+      const pf = portfolioForecast(total);
+      const gainClass = pf.gain >= 0 ? 'pos' : 'neg';
+      cardsWrap.innerHTML = `
+        <div class="card"><div class="k">Portfolio Value</div><div class="v">${formatCurrency(pf.totalValue)}</div></div>
+        <div class="card"><div class="k">Unrealized</div><div class="v ${gainClass}">${formatCurrency(pf.gain)} (${formatPct(pf.gainPct)})</div></div>
+        <div class="card"><div class="k">Total DCA What-if</div><div class="v">${formatCurrency(pf.totalDca)}</div></div>
+        <div class="card"><div class="k">2Y (Base / with DCA)</div><div class="v">${formatCurrency(pf.y2)} / ${formatCurrency(pf.y2Dca)}</div></div>
+        <div class="card"><div class="k">5Y (Base / with DCA)</div><div class="v">${formatCurrency(pf.y5)} / ${formatCurrency(pf.y5Dca)}</div></div>
+        <div class="card"><div class="k">10Y (Base / with DCA)</div><div class="v">${formatCurrency(pf.y10)} / ${formatCurrency(pf.y10Dca)}</div></div>
+      `;
+    }
+
+    function sortIndicator(key) {
+      if (state.sortKey !== key) return '↕';
+      return state.sortDir === 'asc' ? '▲' : '▼';
+    }
+
+    function bindSortHeaders() {
+      document.querySelectorAll('th button[data-sort]').forEach((btn) => {
+        const k = btn.dataset.sort;
+        btn.querySelector('.sort').textContent = sortIndicator(k);
+        btn.onclick = () => {
+          if (state.sortKey === k) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+          else { state.sortKey = k; state.sortDir = 'desc'; }
+          bindSortHeaders();
+          renderTable();
+        };
+      });
+    }
+
+    function renderTable() {
+      const dir = state.sortDir === 'asc' ? 1 : -1;
+      const rows = positions.slice().sort((a, b) => {
+        const av = a[state.sortKey];
+        const bv = b[state.sortKey];
+        if (typeof av === 'string') return av.localeCompare(bv) * dir;
+        return (av - bv) * dir;
+      });
+
+      tableBody.innerHTML = rows.map((p) => {
+        const rowClass = p.symbol === state.selectedSymbol ? 'active' : '';
+        const gainClass = p.unrealizedDollar >= 0 ? 'pos' : 'neg';
+        const dayClass = p.dayChangeDollar >= 0 ? 'pos' : 'neg';
+        return `
+          <tr class="${rowClass}" data-symbol="${p.symbol}">
+            <td class="left">${p.symbol}</td>
+            <td class="left">${p.name}</td>
+            <td>${p.sector}</td>
+            <td>${p.quantity.toFixed(4)}</td>
+            <td>${formatCurrency(p.price)}</td>
+            <td>${formatCurrency(p.costBasis)}</td>
+            <td>${formatCurrency(p.liveValue)}</td>
+            <td class="${gainClass}">${formatCurrency(p.unrealizedDollar)}</td>
+            <td class="${gainClass}">${formatPct(p.unrealizedPctCurrent)}</td>
+            <td class="${dayClass}">${formatCurrency(p.dayChangeDollar)}</td>
+            <td class="${dayClass}">${formatPct(p.dayChangePct)}</td>
+            <td>${p.weight.toFixed(2)}%</td>
+          </tr>
+        `;
+      }).join('');
+
+      tableBody.querySelectorAll('tr').forEach((row) => {
+        row.onclick = () => {
+          state.selectedSymbol = row.dataset.symbol;
+          renderTable();
+          renderDetail();
+        };
+      });
+    }
+
+    function drawLine(values) {
+      const w = 900, h = 180;
+      const min = Math.min(...values), max = Math.max(...values);
+      const y = (v) => h - ((v - min) / (max - min || 1)) * (h - 14) - 7;
+      const pts = values.map((v, i) => `${(i / (values.length - 1)) * w},${y(v)}`).join(' ');
+      chart.innerHTML = `
+        <rect x="0" y="0" width="${w}" height="${h}" fill="#0a1123"/>
+        <polyline points="${pts}" fill="none" stroke="#7aa2ff" stroke-width="3"/>
+      `;
+    }
+
+    function makeScenarioBlock(title, rate, p) {
+      const base2 = project(p.liveValue, rate, 2);
+      const base5 = project(p.liveValue, rate, 5);
+      const base10 = project(p.liveValue, rate, 10);
+      const dca2 = project(p.liveValue + p.dcaAmount, rate, 2);
+      const dca5 = project(p.liveValue + p.dcaAmount, rate, 5);
+      const dca10 = project(p.liveValue + p.dcaAmount, rate, 10);
+      return `
+        <div class="scenario">
+          <h4>${title} (${(rate * 100).toFixed(2)}%/yr)</h4>
+          <ul>
+            <li><span>2Y</span><span>${formatCurrency(base2)} → ${formatCurrency(dca2)} (${formatCurrency(dca2 - base2)})</span></li>
+            <li><span>5Y</span><span>${formatCurrency(base5)} → ${formatCurrency(dca5)} (${formatCurrency(dca5 - base5)})</span></li>
+            <li><span>10Y</span><span>${formatCurrency(base10)} → ${formatCurrency(dca10)} (${formatCurrency(dca10 - base10)})</span></li>
+          </ul>
+        </div>
+      `;
+    }
+
+    function renderDetail() {
+      const p = positions.find((x) => x.symbol === state.selectedSymbol);
+      dcaInput.value = p.dcaAmount || '';
+      detailTitle.textContent = `${p.symbol} • ${p.name}`;
+      detailMeta.textContent = `Sector: ${p.sector} | Industry: ${p.industry} | Benchmark: ${p.benchmark} | Live: ${formatCurrency(p.liveValue)} | Day: ${formatCurrency(p.dayChangeDollar)} (${formatPct(p.dayChangePct)})`;
+      forecastAssumption.textContent = `Cases use annualized rates derived from current position profile: Bear ${ (p.bearRate*100).toFixed(2)}%, Base ${(p.baseRate*100).toFixed(2)}%, Bull ${(p.bullRate*100).toFixed(2)}%.`;
+
+      const total = positions.reduce((s, x) => s + x.liveValue, 0);
+      const sectorWeight = positions.filter((x) => x.sector === p.sector).reduce((s, x) => s + x.liveValue, 0) / total * 100;
+      const stockWeight = p.liveValue / total * 100;
+      sectorImpact.innerHTML = `<strong>Sector/Industry Impact</strong><br>
+        ${p.symbol} is <strong>${stockWeight.toFixed(2)}%</strong> of your portfolio. ${p.sector} exposure is <strong>${sectorWeight.toFixed(2)}%</strong> total. This means ${p.symbol}'s forecast impact is amplified when ${p.sector} outperforms/underperforms. Benchmark proxy: <strong>${p.benchmark}</strong> for relative sector behavior.`;
+
+      scenarioGrid.innerHTML = [
+        makeScenarioBlock('Bear Case', p.bearRate, p),
+        makeScenarioBlock('Base Case', p.baseRate, p),
+        makeScenarioBlock('Bull Case', p.bullRate, p)
+      ].join('');
+
+      drawLine(p.history.concat([p.liveValue]));
+    }
+
+    function applyDca() {
+      const p = positions.find((x) => x.symbol === state.selectedSymbol);
+      const val = Math.max(0, Number(dcaInput.value || 0));
+      p.dcaAmount = Number.isFinite(val) ? val : 0;
+      saveDcaState();
+      renderCards();
+      renderDetail();
+    }
+
+    document.getElementById('apply-dca').onclick = applyDca;
+    document.getElementById('reset-dca').onclick = () => {
+      const p = positions.find((x) => x.symbol === state.selectedSymbol);
+      p.dcaAmount = 0;
+      dcaInput.value = '';
+      saveDcaState();
+      renderCards();
+      renderDetail();
+    };
+
+    async function fetchLiveQuotes() {
+      const symbols = positions.map((p) => p.symbol).join(',');
+      const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}`;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      const quotes = data?.quoteResponse?.result || [];
+      if (!quotes.length) throw new Error('No quote results returned');
+      const bySymbol = Object.fromEntries(quotes.map((q) => [q.symbol, q]));
+
+      positions.forEach((p) => {
+        const q = bySymbol[p.symbol];
+        if (!q || typeof q.regularMarketPrice !== 'number') return;
+        p.prevClose = typeof q.regularMarketPreviousClose === 'number' ? q.regularMarketPreviousClose : p.prevClose;
+        p.price = q.regularMarketPrice;
+        p.dayChangeDollar = typeof q.regularMarketChange === 'number' ? q.regularMarketChange * p.quantity : (p.price - p.prevClose) * p.quantity;
+        p.dayChangePct = typeof q.regularMarketChangePercent === 'number' ? q.regularMarketChangePercent : ((p.price - p.prevClose) / (p.prevClose || p.price)) * 100;
+        p.liveValue = p.price * p.quantity;
+      });
+
+      state.liveMode = 'live';
+      feedStatus.className = 'status ok';
+      feedStatus.textContent = 'Quote feed: Live API (Yahoo)';
+    }
+
+    function fallbackTick() {
+      positions.forEach((p) => {
+        const wiggle = (Math.random() - 0.5) * 0.006;
+        const old = p.price;
+        p.price = Math.max(0.01, p.price * (1 + wiggle));
+        p.dayChangeDollar = (p.price - old) * p.quantity;
+        p.dayChangePct = ((p.price - old) / old) * 100;
+        p.liveValue = p.price * p.quantity;
+      });
+      state.liveMode = 'fallback';
+      feedStatus.className = 'status warn';
+      feedStatus.textContent = 'Quote feed: Fallback simulation (API blocked/unavailable)';
+    }
+
+    async function refreshQuotes() {
+      try { await fetchLiveQuotes(); }
+      catch (err) { fallbackTick(); }
+      lastUpdated.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+      marketStatus.textContent = `Market status: ${getUsMarketStatus()}`;
+      renderCards();
+      bindSortHeaders();
+      renderTable();
+      renderDetail();
+    }
+
+    renderCards();
+    bindSortHeaders();
+    renderTable();
+    renderDetail();
+    refreshQuotes();
+    setInterval(refreshQuotes, 15000);
+  </script>
 </body>
 </html>
