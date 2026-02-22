@@ -3,10 +3,371 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hello World</title>
+  <title>Portfolio Forecast Dashboard</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #121a33;
+      --muted: #97a3c1;
+      --text: #f3f6ff;
+      --green: #31d07f;
+      --red: #ff6b6b;
+      --accent: #7aa2ff;
+      --border: #263254;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: linear-gradient(160deg, #070b17 0%, #0b1020 45%, #0f1730 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .app {
+      width: min(1200px, 94vw);
+      margin: 2rem auto;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .panel {
+      background: rgba(18, 26, 51, 0.86);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1rem;
+      backdrop-filter: blur(6px);
+    }
+
+    h1, h2, h3, p { margin: 0; }
+
+    .top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .muted { color: var(--muted); font-size: 0.9rem; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 0.75rem;
+      margin-top: 0.75rem;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.8rem;
+      background: rgba(16, 24, 48, 0.8);
+    }
+
+    .card .label { font-size: 0.8rem; color: var(--muted); }
+    .card .value { font-size: 1.15rem; font-weight: 700; margin-top: 0.4rem; }
+
+    .positive { color: var(--green); }
+    .negative { color: var(--red); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 0.55rem 0.45rem;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    th:first-child, td:first-child,
+    th:nth-child(2), td:nth-child(2) { text-align: left; }
+
+    tbody tr {
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    tbody tr:hover,
+    tbody tr.active {
+      background: rgba(122, 162, 255, 0.12);
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 0.8rem;
+    }
+
+    .chart {
+      width: 100%;
+      height: 180px;
+      background: rgba(11, 16, 32, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.35rem;
+    }
+
+    .forecast-list {
+      list-style: none;
+      padding: 0;
+      margin: 0.8rem 0 0;
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .forecast-list li {
+      display: flex;
+      justify-content: space-between;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.6rem;
+    }
+
+    .disclaimer {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    @media (max-width: 900px) {
+      .detail-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-  <h1>Hello World</h1>
-  <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+  <main class="app">
+    <section class="panel">
+      <div class="top-row">
+        <div>
+          <h1>Stock Portfolio Dashboard</h1>
+          <p class="muted">Live tracking + historical trend + 2/5/10 year forecasts</p>
+        </div>
+        <div>
+          <p id="last-updated" class="muted">Last updated: --</p>
+          <p class="muted">Source: Uploaded position snapshot + simulated live ticks</p>
+        </div>
+      </div>
+      <div id="portfolio-cards" class="cards"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Positions</h2>
+      <div style="overflow:auto; margin-top:0.6rem;">
+        <table id="positions-table">
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Name</th>
+              <th>Qty</th>
+              <th>Cost Basis</th>
+              <th>Value</th>
+              <th>Unrealized ($)</th>
+              <th>Unrealized (%)</th>
+              <th>Weight (%)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel detail-grid">
+      <div>
+        <h2 id="detail-title">Position Detail</h2>
+        <p id="detail-meta" class="muted" style="margin-top:0.3rem;"></p>
+        <svg id="history-chart" class="chart" viewBox="0 0 800 180" preserveAspectRatio="none"></svg>
+      </div>
+      <div>
+        <h3>Forecast (Estimated)</h3>
+        <p class="muted" id="forecast-assumption" style="margin-top:0.3rem;"></p>
+        <ul id="forecast-list" class="forecast-list"></ul>
+      </div>
+    </section>
+
+    <section class="panel disclaimer">
+      Forecast values are model estimates based on a capped return-rate heuristic from current unrealized performance, with small live-tick simulation noise. They are not guarantees or investment advice.
+    </section>
+  </main>
+
+  <script>
+    const positions = [
+      { symbol: 'PLTR', name: 'Palantir Technologies Inc.', quantity: 578.67495, costBasis: 15050, unrealizedGain: 63291.01, unrealizedPct: 420.54, value: 78341.01 },
+      { symbol: 'VOO', name: 'Vanguard S&P 500 ETF', quantity: 102.38684, costBasis: 65034.12, unrealizedGain: -412.67, unrealizedPct: -0.63, value: 64621.45 },
+      { symbol: 'SCHG', name: 'Schwab U.S. Large-Cap Growth ETF', quantity: 940.64686, costBasis: 23211.56, unrealizedGain: 5675.71, unrealizedPct: 24.45, value: 28887.27 },
+      { symbol: 'NVDA', name: 'NVIDIA', quantity: 123.96937, costBasis: 13050, unrealizedGain: 10253.76, unrealizedPct: 78.57, value: 23303.76 },
+      { symbol: 'MU', name: 'Micron Technology Inc.', quantity: 54.74981, costBasis: 10006.29, unrealizedGain: 13040.64, unrealizedPct: 130.32, value: 23046.93 },
+      { symbol: 'TSLA', name: 'Tesla Inc.', quantity: 47.13732, costBasis: 6000, unrealizedGain: 13388.52, unrealizedPct: 223.14, value: 19388.52 },
+      { symbol: 'VRT', name: 'Vertiv Holdings LLC Class A', quantity: 70.77637, costBasis: 10004.42, unrealizedGain: 7209.1, unrealizedPct: 72.06, value: 17213.52 },
+      { symbol: 'SCHD', name: 'Schwab U.S. Dividend Equity ETF', quantity: 418.69852, costBasis: 9578.98, unrealizedGain: 3635.15, unrealizedPct: 37.95, value: 13214.13 },
+      { symbol: 'COST', name: 'Costco Wholesale Corporation', quantity: 10.92647, costBasis: 5014.19, unrealizedGain: 5869.45, unrealizedPct: 117.06, value: 10883.64 },
+      { symbol: 'SGOV', name: 'iShares 0-3 Month Treasury Bond ETF', quantity: 99.34408, costBasis: 9989.05, unrealizedGain: -1, unrealizedPct: -0.01, value: 9988.05 },
+      { symbol: 'AVGO', name: 'Broadcom Inc.', quantity: 24.40902, costBasis: 8326.88, unrealizedGain: -186.23, unrealizedPct: -2.24, value: 8140.65 },
+      { symbol: 'MSFT', name: 'Microsoft', quantity: 14.73968, costBasis: 4533.44, unrealizedGain: 1356.54, unrealizedPct: 29.92, value: 5889.98 },
+      { symbol: 'UNH', name: 'UnitedHealth Group Incorporated (DE)', quantity: 20.20759, costBasis: 6400.83, unrealizedGain: -577, unrealizedPct: -9.01, value: 5823.83 },
+      { symbol: 'AMD', name: 'Advanced Micro Devices Inc.', quantity: 26.23628, costBasis: 6000, unrealizedGain: -749.6, unrealizedPct: -12.49, value: 5250.4 },
+      { symbol: 'ABBV', name: 'AbbVie Inc.', quantity: 22.72414, costBasis: 3031.36, unrealizedGain: 2166.11, unrealizedPct: 71.46, value: 5197.47 },
+      { symbol: 'META', name: 'Meta Platforms Inc.', quantity: 7.9885, costBasis: 3650, unrealizedGain: 1488.36, unrealizedPct: 40.78, value: 5138.36 },
+      { symbol: 'CSGP', name: 'CoStar Group Inc.', quantity: 89.01282, costBasis: 15285.59, unrealizedGain: -10929.3, unrealizedPct: -71.5, value: 4356.29 },
+      { symbol: 'KRP', name: 'Kimbell Royalty Partners Representing Limited Partner Interests', quantity: 255.54993, costBasis: 3288.49, unrealizedGain: 350.54, unrealizedPct: 10.66, value: 3639.03 },
+      { symbol: 'CEG', name: 'Constellation Energy Corporation', quantity: 12.24967, costBasis: 3600, unrealizedGain: 2.02, unrealizedPct: 0.06, value: 3602.02 },
+      { symbol: 'WFC', name: 'Wells Fargo & Company', quantity: 40.51921, costBasis: 1454.6, unrealizedGain: 2133.78, unrealizedPct: 146.69, value: 3588.38 },
+      { symbol: 'NEE', name: 'NextEra Energy Inc.', quantity: 38.67363, costBasis: 3600, unrealizedGain: -72.19, unrealizedPct: -2.01, value: 3527.81 },
+      { symbol: 'AAPL', name: 'Apple', quantity: 12.74639, costBasis: 1006.62, unrealizedGain: 2362.89, unrealizedPct: 234.74, value: 3369.51 },
+      { symbol: 'ANET', name: 'Arista Networks Inc.', quantity: 22.33939, costBasis: 3150, unrealizedGain: -32.76, unrealizedPct: -1.04, value: 3117.24 },
+      { symbol: 'TSM', name: 'Taiwan Semiconductor Manufacturing Company Ltd.', quantity: 6.51066, costBasis: 2152.1, unrealizedGain: 206.45, unrealizedPct: 9.59, value: 2358.55 },
+      { symbol: 'AMZN', name: 'Amazon', quantity: 10.71828, costBasis: 2150, unrealizedGain: 45, unrealizedPct: 2.09, value: 2195 },
+      { symbol: 'GOOG', name: 'Alphabet', quantity: 6.01662, costBasis: 1051.23, unrealizedGain: 777.46, unrealizedPct: 73.96, value: 1828.69 },
+      { symbol: 'V', name: 'Visa', quantity: 3.41479, costBasis: 1002.28, unrealizedGain: 91.48, unrealizedPct: 9.13, value: 1093.76 }
+    ];
+
+    const formatCurrency = (n) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+    const formatPct = (n) => `${n.toFixed(2)}%`;
+
+    positions.forEach((p) => {
+      p.liveValue = p.value;
+      p.expectedReturn = Math.max(-0.08, Math.min(0.18, (p.unrealizedPct / 100) * 0.12));
+      p.history = Array.from({ length: 24 }, (_, i) => {
+        const trend = 1 + (i / 24) * p.expectedReturn;
+        const noise = 1 + (Math.sin(i * 1.8 + p.quantity) * 0.02);
+        return p.value / (trend * noise);
+      });
+    });
+
+    const tableBody = document.querySelector('#positions-table tbody');
+    const cardsWrap = document.getElementById('portfolio-cards');
+    const lastUpdated = document.getElementById('last-updated');
+    const detailTitle = document.getElementById('detail-title');
+    const detailMeta = document.getElementById('detail-meta');
+    const forecastList = document.getElementById('forecast-list');
+    const forecastAssumption = document.getElementById('forecast-assumption');
+    const chart = document.getElementById('history-chart');
+
+    let selectedSymbol = positions[0].symbol;
+
+    function forecast(value, rate, years) {
+      return value * ((1 + rate) ** years);
+    }
+
+    function portfolioStats() {
+      const totalValue = positions.reduce((sum, p) => sum + p.liveValue, 0);
+      const totalCost = positions.reduce((sum, p) => sum + p.costBasis, 0);
+      const gain = totalValue - totalCost;
+      const gainPct = (gain / totalCost) * 100;
+      const weightedRate = positions.reduce((sum, p) => sum + (p.liveValue / totalValue) * p.expectedReturn, 0);
+
+      return {
+        totalValue,
+        totalCost,
+        gain,
+        gainPct,
+        weightedRate,
+        in2y: forecast(totalValue, weightedRate, 2),
+        in5y: forecast(totalValue, weightedRate, 5),
+        in10y: forecast(totalValue, weightedRate, 10)
+      };
+    }
+
+    function renderCards() {
+      const s = portfolioStats();
+      const gainClass = s.gain >= 0 ? 'positive' : 'negative';
+      cardsWrap.innerHTML = `
+        <div class="card"><div class="label">Portfolio Value</div><div class="value">${formatCurrency(s.totalValue)}</div></div>
+        <div class="card"><div class="label">Total Gain / Loss</div><div class="value ${gainClass}">${formatCurrency(s.gain)} (${formatPct(s.gainPct)})</div></div>
+        <div class="card"><div class="label">2Y Forecast</div><div class="value">${formatCurrency(s.in2y)}</div></div>
+        <div class="card"><div class="label">5Y Forecast</div><div class="value">${formatCurrency(s.in5y)}</div></div>
+        <div class="card"><div class="label">10Y Forecast</div><div class="value">${formatCurrency(s.in10y)}</div></div>
+      `;
+    }
+
+    function renderTable() {
+      const totalValue = positions.reduce((sum, p) => sum + p.liveValue, 0);
+      tableBody.innerHTML = positions
+        .slice()
+        .sort((a, b) => b.liveValue - a.liveValue)
+        .map((p) => {
+          const weight = (p.liveValue / totalValue) * 100;
+          const gainClass = p.unrealizedGain >= 0 ? 'positive' : 'negative';
+          const active = p.symbol === selectedSymbol ? 'active' : '';
+          return `
+            <tr class="${active}" data-symbol="${p.symbol}">
+              <td>${p.symbol}</td>
+              <td>${p.name}</td>
+              <td>${p.quantity.toFixed(4)}</td>
+              <td>${formatCurrency(p.costBasis)}</td>
+              <td>${formatCurrency(p.liveValue)}</td>
+              <td class="${gainClass}">${formatCurrency(p.liveValue - p.costBasis)}</td>
+              <td class="${gainClass}">${formatPct(((p.liveValue - p.costBasis) / p.costBasis) * 100)}</td>
+              <td>${weight.toFixed(2)}%</td>
+            </tr>
+          `;
+        })
+        .join('');
+
+      tableBody.querySelectorAll('tr').forEach((row) => {
+        row.addEventListener('click', () => {
+          selectedSymbol = row.dataset.symbol;
+          renderTable();
+          renderDetail();
+        });
+      });
+    }
+
+    function renderHistoryLine(values) {
+      const w = 800;
+      const h = 180;
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const y = (v) => h - ((v - min) / (max - min || 1)) * (h - 10) - 5;
+
+      const points = values.map((v, i) => `${(i / (values.length - 1)) * w},${y(v)}`).join(' ');
+      chart.innerHTML = `
+        <rect x="0" y="0" width="${w}" height="${h}" fill="#0b1020" rx="8"/>
+        <polyline fill="none" stroke="#7aa2ff" stroke-width="3" points="${points}"/>
+      `;
+    }
+
+    function renderDetail() {
+      const p = positions.find((x) => x.symbol === selectedSymbol);
+      const f2 = forecast(p.liveValue, p.expectedReturn, 2);
+      const f5 = forecast(p.liveValue, p.expectedReturn, 5);
+      const f10 = forecast(p.liveValue, p.expectedReturn, 10);
+
+      detailTitle.textContent = `${p.symbol} • ${p.name}`;
+      detailMeta.textContent = `Live value ${formatCurrency(p.liveValue)} | Cost basis ${formatCurrency(p.costBasis)} | Unrealized ${formatCurrency(p.liveValue - p.costBasis)} (${formatPct(((p.liveValue - p.costBasis) / p.costBasis) * 100)})`;
+      forecastAssumption.textContent = `Estimated annual return assumption: ${(p.expectedReturn * 100).toFixed(2)}% (heuristic, capped between -8% and +18%)`;
+
+      forecastList.innerHTML = `
+        <li><span>2 Year Projection</span> <strong>${formatCurrency(f2)}</strong></li>
+        <li><span>5 Year Projection</span> <strong>${formatCurrency(f5)}</strong></li>
+        <li><span>10 Year Projection</span> <strong>${formatCurrency(f10)}</strong></li>
+      `;
+
+      renderHistoryLine(p.history.concat([p.liveValue]));
+    }
+
+    function tickLiveValues() {
+      positions.forEach((p) => {
+        const wiggle = (Math.random() - 0.5) * 0.01;
+        p.liveValue = Math.max(0.01, p.liveValue * (1 + wiggle));
+      });
+      lastUpdated.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+      renderCards();
+      renderTable();
+      renderDetail();
+    }
+
+    renderCards();
+    renderTable();
+    renderDetail();
+    tickLiveValues();
+    setInterval(tickLiveValues, 5000);
+  </script>
 </body>
 </html>
